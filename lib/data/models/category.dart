@@ -3,7 +3,11 @@ class Category {
   final String nombre;
   final String tipo;   // ingreso | gasto
   final String color;  // #RRGGBB
-  final String icono;  // nombre ícono Material
+  // icono: código con prefijo de pack
+  // - Material Icons:  "mi:category", "mi:restaurant", ...
+  // - FontAwesome:     "fa:utensils", "fa:cartShopping", ...
+  // Si comes de datos antiguos sin prefijo (ej: "category"), se asume Material.
+  final String icono;
   final bool activo;
   final String created;
 
@@ -22,7 +26,7 @@ class Category {
     nombre: map['nombre'] as String,
     tipo: map['tipo'] as String,
     color: map['color'] as String,
-    icono: map['icono'] as String,
+    icono: (map['icono'] as String?) ?? 'mi:category',
     activo: (map['activo'] as int) == 1,
     created: map['created'] as String,
   );

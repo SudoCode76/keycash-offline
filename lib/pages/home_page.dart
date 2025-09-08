@@ -7,16 +7,29 @@ import 'categories_page.dart';
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
+  Future<void> _goToAdd(BuildContext context) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const AddTransactionPage()),
+    );
+    if (context.mounted) {
+      await context.read<TransactionProvider>().loadToday();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final tx = context.watch<TransactionProvider>();
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      backgroundColor: scheme.background,
       appBar: AppBar(
         title: const Text('KeyCash Offline'),
+        centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.category),
+            tooltip: 'Categorías',
+            icon: const Icon(Icons.category_outlined),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const CategoriesPage()),
@@ -25,122 +38,219 @@ class HomePage extends StatelessWidget {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () => context.read<TransactionProvider>().loadToday(),
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    _tile('Ingresos', tx.ingresosHoy, Colors.green),
-                    const SizedBox(width: 12),
-                    _tile('Gastos', tx.gastosHoy, Colors.red),
-                    const SizedBox(width: 12),
-                    _tile('Balance', tx.balanceHoy, tx.balanceHoy >= 0 ? Colors.blue : Colors.orange),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text('Movimientos de hoy', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            if (tx.isLoading)
-              const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
-            else if (tx.today.isEmpty)
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () => context.read<TransactionProvider>().loadToday(),
+          color: scheme.primary,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              // Resumen financiero (3 tarjetas)
               Card(
+                elevation: 1,
                 child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      Icon(Icons.receipt_long_outlined, color: Theme.of(context).colorScheme.primary),
-                      const SizedBox(height: 8),
-                      const Text('Sin movimientos hoy'),
-                    ],
-                  ),
-                ),
-              )
-            else
-              ...tx.today.map((t) {
-                final isIngreso = t.tipo == 'ingreso';
-                return Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: (isIngreso ? Colors.green : Colors.red).withOpacity(0.1),
-                      child: Icon(isIngreso ? Icons.add : Icons.remove,
-                          color: isIngreso ? Colors.green : Colors.red),
-                    ),
-                    title: Text(t.descripcion),
-                    subtitle: Text(t.fecha),
-                    trailing: Text(
-                      '${isIngreso ? '+' : '-'}Bs. ${t.monto.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        color: isIngreso ? Colors.green : Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            if (tx.error != null) ...[
-              const SizedBox(height: 8),
-              Card(
-                color: Theme.of(context).colorScheme.errorContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(14),
                   child: Row(
                     children: [
-                      Icon(Icons.error, color: Theme.of(context).colorScheme.onErrorContainer),
-                      const SizedBox(width: 8),
                       Expanded(
-                        child: Text(
-                          tx.error!,
-                          style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+                        child: _summaryChip(
+                          context,
+                          title: 'Ingresos',
+                          amount: tx.ingresosHoy,
+                          color: Colors.green,
+                          icon: Icons.trending_up,
                         ),
                       ),
-                      IconButton(
-                        icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onErrorContainer),
-                        onPressed: () => context.read<TransactionProvider>().clearError(),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _summaryChip(
+                          context,
+                          title: 'Gastos',
+                          amount: tx.gastosHoy,
+                          color: Colors.red,
+                          icon: Icons.trending_down,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _summaryChip(
+                          context,
+                          title: 'Balance',
+                          amount: tx.balanceHoy,
+                          color: Colors.blue,
+                          icon: Icons.account_balance_wallet_outlined,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+
+              // Encabezado de lista + botón Agregar (Material 3)
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Movimientos de hoy',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  FilledButton.icon(
+                    onPressed: () => _goToAdd(context),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Agregar'),
+                    style: FilledButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              if (tx.isLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (tx.today.isEmpty)
+                Card(
+                  elevation: 1,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Icon(Icons.receipt_long_outlined,
+                            color: scheme.primary),
+                        const SizedBox(height: 8),
+                        const Text('No hay movimientos hoy'),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.add),
+                          label: const Text('Registrar movimiento'),
+                          onPressed: () => _goToAdd(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                ...tx.today.map((t) {
+                  final isIngreso = t.tipo == 'ingreso';
+                  final color = isIngreso ? Colors.green : Colors.red;
+                  return Card(
+                    elevation: 1,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      leading: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: color.withOpacity(0.12),
+                        child: Icon(
+                          isIngreso ? Icons.add : Icons.remove,
+                          color: color,
+                        ),
+                      ),
+                      title: Text(
+                        t.descripcion,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        t.fecha, // formato YYYY-MM-DD
+                        style: TextStyle(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      trailing: Text(
+                        '${isIngreso ? '+' : '-'}Bs. ${t.monto.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          color: color,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      onTap: () {}, // futuro: detalle
+                    ),
+                  );
+                }),
+
+              const SizedBox(height: 100),
             ],
-            const SizedBox(height: 100),
-          ],
+          ),
         ),
       ),
+
+      // Botón flotante (Material 3) tipo "pill"
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AddTransactionPage()));
-          if (context.mounted) context.read<TransactionProvider>().loadToday();
-        },
+        onPressed: () => _goToAdd(context),
         icon: const Icon(Icons.add),
         label: const Text('Agregar'),
+        backgroundColor: scheme.primaryContainer,
+        foregroundColor: scheme.onPrimaryContainer,
+        elevation: 6,
       ),
     );
   }
 
-  Expanded _tile(String title, double value, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.25)),
-        ),
-        child: Column(
-          children: [
-            Text('Bs. ${value.toStringAsFixed(2)}',
-                style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(title, style: TextStyle(color: color)),
-          ],
-        ),
+  Widget _summaryChip(
+      BuildContext context, {
+        required String title,
+        required double amount,
+        required Color color,
+        required IconData icon,
+      }) {
+    final scheme = Theme.of(context).colorScheme;
+    final bg = color.withOpacity(0.08);
+    final border = color.withOpacity(0.25);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 6),
+              Text(
+                'Bs.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            amount.toStringAsFixed(2),
+            style: TextStyle(
+              fontSize: 18,
+              color: color,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

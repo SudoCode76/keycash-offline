@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'providers/category_provider.dart';
 import 'providers/transaction_provider.dart';
 import 'data/local/local_db.dart';
-import 'pages/home_page.dart';
+import 'widgets/main_navigation.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,13 +29,23 @@ class KeyCashOfflineApp extends StatelessWidget {
           useMaterial3: true,
           colorSchemeSeed: const Color(0xFF1976D2),
           brightness: Brightness.light,
+          appBarTheme: const AppBarTheme(
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            backgroundColor: Colors.transparent,
+          ),
         ),
         darkTheme: ThemeData(
           useMaterial3: true,
           colorSchemeSeed: const Color(0xFF1976D2),
           brightness: Brightness.dark,
+          appBarTheme: const AppBarTheme(
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            backgroundColor: Colors.transparent,
+          ),
         ),
-        home: const HomePage(),
+        home: const MainNavigation(),
       ),
     );
   }
