@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
+
 import '../providers/category_provider.dart';
+import '../data/models/category.dart';
 
 class CategoriesPage extends StatefulWidget {
   const CategoriesPage({super.key});
@@ -11,7 +13,7 @@ class CategoriesPage extends StatefulWidget {
 }
 
 class _CategoriesPageState extends State<CategoriesPage> {
-  String _filter = 'todos'; // todos | ingreso | gasto
+  String _filter = 'todos';
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +50,6 @@ class _CategoriesPageState extends State<CategoriesPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // Filtros
             Wrap(
               spacing: 8,
               children: [
@@ -70,8 +71,6 @@ class _CategoriesPageState extends State<CategoriesPage> {
               ],
             ),
             const SizedBox(height: 8),
-
-            // Lista
             ...list.map((c) {
               final color = _hexToColor(c.color);
               return Card(
@@ -93,6 +92,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                     value: c.activo,
                     onChanged: (v) => provider.toggleActivo(c.id, v),
                   ),
+                  onTap: () => _openForm(context, category: c),
                   onLongPress: () async {
                     final ok = await showDialog<bool>(
                       context: context,
@@ -116,7 +116,6 @@ class _CategoriesPageState extends State<CategoriesPage> {
                 ),
               );
             }),
-
             if (provider.error != null) ...[
               const SizedBox(height: 8),
               Card(
@@ -125,17 +124,21 @@ class _CategoriesPageState extends State<CategoriesPage> {
                   padding: const EdgeInsets.all(12),
                   child: Row(
                     children: [
-                      Icon(Icons.error, color: scheme.onErrorContainer),
+                      Icon(Icons.error,
+                          color: scheme.onErrorContainer),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           provider.error!,
-                          style: TextStyle(color: scheme.onErrorContainer),
+                          style: TextStyle(
+                              color: scheme.onErrorContainer),
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.close, color: scheme.onErrorContainer),
-                        onPressed: () => context.read<CategoryProvider>().load(),
+                        icon: Icon(Icons.close,
+                            color: scheme.onErrorContainer),
+                        onPressed: () =>
+                            context.read<CategoryProvider>().load(),
                       ),
                     ],
                   ),
@@ -146,8 +149,6 @@ class _CategoriesPageState extends State<CategoriesPage> {
           ],
         ),
       ),
-
-      // Botón flotante para agregar (Material 3)
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openForm(context),
         icon: const Icon(Icons.add),
@@ -156,14 +157,15 @@ class _CategoriesPageState extends State<CategoriesPage> {
     );
   }
 
-  Future<void> _openForm(BuildContext context) async {
+  Future<void> _openForm(BuildContext context, {Category? category}) async {
     final provider = context.read<CategoryProvider>();
 
     final formKey = GlobalKey<FormState>();
-    final nameCtrl = TextEditingController();
-    String tipo = 'gasto';
-    String colorHex = '#FF5722';
-    String iconCode = 'mi:category'; // prefijo: mi (Material) | fa (FontAwesome)
+    final nameCtrl = TextEditingController(text: category?.nombre ?? '');
+    String tipo = category?.tipo ?? 'gasto';
+    String colorHex = category?.color ?? '#FF5722';
+    String iconCode = category?.icono ?? 'mi:category';
+    final isEdit = category != null;
 
     await showModalBottomSheet(
       context: context,
@@ -175,14 +177,11 @@ class _CategoriesPageState extends State<CategoriesPage> {
       ),
       builder: (ctx) {
         final insets = MediaQuery.of(ctx).viewInsets;
-        final scheme = Theme.of(ctx).colorScheme;
-
         return Padding(
           padding: EdgeInsets.only(bottom: insets.bottom),
           child: StatefulBuilder(
             builder: (context, setModalState) {
               final color = _hexToColor(colorHex);
-
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Form(
@@ -190,7 +189,6 @@ class _CategoriesPageState extends State<CategoriesPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Header con icono seleccionado
                       Row(
                         children: [
                           CircleAvatar(
@@ -199,16 +197,15 @@ class _CategoriesPageState extends State<CategoriesPage> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Nueva categoría',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            isEdit ? 'Editar categoría' : 'Nueva categoría',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
-
-                      // Nombre
                       TextFormField(
                         controller: nameCtrl,
                         decoration: const InputDecoration(
@@ -220,8 +217,6 @@ class _CategoriesPageState extends State<CategoriesPage> {
                             : null,
                       ),
                       const SizedBox(height: 12),
-
-                      // Tipo (Ingreso / Gasto)
                       SegmentedButton<String>(
                         segments: const [
                           ButtonSegment(
@@ -238,8 +233,6 @@ class _CategoriesPageState extends State<CategoriesPage> {
                             setModalState(() => tipo = s.first),
                       ),
                       const SizedBox(height: 12),
-
-                      // Selección de ícono (Material + FontAwesome)
                       InputDecorator(
                         decoration: const InputDecoration(
                           labelText: 'Icono',
@@ -247,54 +240,44 @@ class _CategoriesPageState extends State<CategoriesPage> {
                               borderSide: BorderSide.none),
                           filled: true,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: _iconCatalog.entries.map((e) {
-                                final selected = iconCode == e.key;
-                                final bg = selected
-                                    ? Theme.of(context)
-                                    .colorScheme
-                                    .primary
-                                    .withOpacity(0.12)
-                                    : Colors.transparent;
-                                final border = selected
-                                    ? Theme.of(context)
-                                    .colorScheme
-                                    .primary
-                                    : Colors.grey.shade300;
-
-                                return InkWell(
-                                  onTap: () => setModalState(
-                                          () => iconCode = e.key),
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      color: bg,
-                                      border: Border.all(color: border),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: _buildIconWidget(
-                                      e.key,
-                                      _hexToColor(colorHex),
-                                      size: 20,
-                                    ),
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _iconCatalog.entries.map((e) {
+                            final selected = iconCode == e.key;
+                            return InkWell(
+                              onTap: () =>
+                                  setModalState(() => iconCode = e.key),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: selected
+                                      ? Theme.of(context)
+                                      .colorScheme
+                                      .primary
+                                      .withOpacity(0.12)
+                                      : Colors.transparent,
+                                  border: Border.all(
+                                    color: selected
+                                        ? Theme.of(context)
+                                        .colorScheme
+                                        .primary
+                                        : Colors.grey.shade300,
                                   ),
-                                );
-                              }).toList(),
-                            ),
-                          ],
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                alignment: Alignment.center,
+                                child: _buildIconWidget(
+                                    e.key, _hexToColor(colorHex),
+                                    size: 20),
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ),
                       const SizedBox(height: 12),
-
-                      // Color (hex manual + preset)
                       InputDecorator(
                         decoration: const InputDecoration(
                           labelText: 'Color',
@@ -351,34 +334,73 @@ class _CategoriesPageState extends State<CategoriesPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
-
-                      // Acciones
                       Row(
                         children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () => Navigator.pop(ctx),
-                              icon: const Icon(Icons.close),
-                              label: const Text('Cancelar'),
+                          if (isEdit)
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                icon: const Icon(Icons.delete_outline,
+                                    color: Colors.red),
+                                label: const Text(
+                                  'Eliminar',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                                onPressed: () async {
+                                  final ok = await showDialog<bool>(
+                                    context: context,
+                                    builder: (d) => AlertDialog(
+                                      title: const Text('Eliminar'),
+                                      content: Text(
+                                          '¿Eliminar la categoría "${category!.nombre}"?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(d, false),
+                                          child: const Text('Cancelar'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(d, true),
+                                          child: const Text('Eliminar'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (ok == true) {
+                                    await provider.delete(category.id);
+                                    if (ctx.mounted) Navigator.pop(ctx);
+                                  }
+                                },
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
+                          if (isEdit) const SizedBox(width: 12),
                           Expanded(
                             child: FilledButton.icon(
+                              icon: const Icon(Icons.save),
+                              label: Text(isEdit ? 'Guardar' : 'Crear'),
                               onPressed: () async {
                                 if (!formKey.currentState!.validate()) {
                                   return;
                                 }
-                                final ok = await provider.add(
-                                  nombre: nameCtrl.text,
-                                  tipo: tipo,
-                                  color: colorHex,
-                                  icono: iconCode, // guarda código con prefijo
-                                );
-                                if (ok && mounted) Navigator.pop(ctx);
+                                bool ok;
+                                if (isEdit) {
+                                  ok = await provider.updateCategory(
+                                    category!,
+                                    nombre: nameCtrl.text,
+                                    tipo: tipo,
+                                    color: colorHex,
+                                    icono: iconCode,
+                                  );
+                                } else {
+                                  ok = await provider.add(
+                                    nombre: nameCtrl.text,
+                                    tipo: tipo,
+                                    color: colorHex,
+                                    icono: iconCode,
+                                  );
+                                }
+                                if (ok && ctx.mounted) Navigator.pop(ctx);
                               },
-                              icon: const Icon(Icons.save),
-                              label: const Text('Guardar'),
                             ),
                           ),
                         ],
@@ -394,9 +416,6 @@ class _CategoriesPageState extends State<CategoriesPage> {
     );
   }
 
-  // ========= Helpers =========
-
-  // Catálogo de iconos (mi:* = Material, fa:* = FontAwesome)
   static const Map<String, _IconSpec> _iconCatalog = {
     // Material
     'mi:category': _IconSpec.mi(Icons.category),
@@ -412,8 +431,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
     'mi:shopping_cart': _IconSpec.mi(Icons.shopping_cart),
     'mi:home': _IconSpec.mi(Icons.home),
     'mi:sports_esports': _IconSpec.mi(Icons.sports_esports),
-
-    // FontAwesome (usar FaIcon para render)
+    // FontAwesome
     'fa:utensils': _IconSpec.fa(FontAwesomeIcons.utensils),
     'fa:cartShopping': _IconSpec.fa(FontAwesomeIcons.cartShopping),
     'fa:car': _IconSpec.fa(FontAwesomeIcons.car),
@@ -435,16 +453,13 @@ class _CategoriesPageState extends State<CategoriesPage> {
 
   Widget _buildIconWidget(String code, Color color, {double size = 20}) {
     final spec = _parseIcon(code);
-    if (spec.isFa) {
-      return FaIcon(spec.data, color: color, size: size);
-    }
+    if (spec.isFa) return FaIcon(spec.data, color: color, size: size);
     return Icon(spec.data, color: color, size: size);
   }
 
   _IconSpec _parseIcon(String code) {
-    // Si viene sin prefijo, asumir material
     if (!_iconCatalog.containsKey(code)) {
-      final fallbackKey = 'mi:$code'; // ej: "category" -> "mi:category"
+      final fallbackKey = 'mi:$code';
       return _iconCatalog[fallbackKey] ?? const _IconSpec.mi(Icons.category);
     }
     return _iconCatalog[code]!;

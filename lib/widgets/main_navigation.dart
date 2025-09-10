@@ -7,13 +7,10 @@ import '../pages/reports_page.dart';
 import '../pages/categories_page.dart';
 import '../pages/chat_page.dart';
 import '../pages/about_page.dart';
-import '../pages/add_transaction_page.dart';
 
 class MainNavigation extends StatefulWidget {
   final int initialIndex;
   const MainNavigation({super.key, this.initialIndex = 0});
-
-  static const int chatTabIndex = 3;
 
   @override
   State<MainNavigation> createState() => _MainNavigationState();
@@ -27,7 +24,6 @@ class _MainNavigationState extends State<MainNavigation> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
-    // 5 tabs (el FAB central es para +)
     _pages = const [
       HomePage(),
       ReportsPage(),
@@ -48,20 +44,7 @@ class _MainNavigationState extends State<MainNavigation> {
         index: _selectedIndex,
         children: _pages,
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const AddTransactionPage()),
-          );
-        },
-        elevation: 6,
-        backgroundColor:
-        isDark ? scheme.primaryContainer : scheme.primary,
-        foregroundColor:
-        isDark ? scheme.onPrimaryContainer : scheme.onPrimary,
-        child: const Icon(Icons.add),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      // FAB central eliminado (solo queda el FAB dentro de HomePage)
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: scheme.surface,
@@ -98,7 +81,8 @@ class _MainNavigationState extends State<MainNavigation> {
               color: scheme.onSurfaceVariant,
               activeColor: scheme.primary,
               iconSize: 24,
-              tabBackgroundColor: scheme.primary.withOpacity(isDark ? 0.12 : 0.07),
+              tabBackgroundColor:
+              scheme.primary.withOpacity(isDark ? 0.12 : 0.07),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               selectedIndex: _selectedIndex,
               onTabChange: (index) => setState(() => _selectedIndex = index),

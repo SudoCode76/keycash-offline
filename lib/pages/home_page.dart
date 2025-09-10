@@ -7,6 +7,7 @@ import '../providers/category_provider.dart';
 import 'add_transaction_page.dart';
 import 'categories_page.dart';
 import 'reports_page.dart';
+import '../data/models/transaction.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -18,6 +19,192 @@ class HomePage extends StatelessWidget {
     if (context.mounted) {
       await context.read<TransactionProvider>().loadToday();
     }
+  }
+
+  void _openEditTransactionSheet(BuildContext context, TransactionModel t) {
+    final txProv = context.read<TransactionProvider>();
+    final catProv = context.read<CategoryProvider>();
+    final montoCtrl = TextEditingController(text: t.monto.toStringAsFixed(2));
+    final descCtrl = TextEditingController(text: t.descripcion);
+    String tipo = t.tipo;
+    String? categoriaId = t.categoriaId;
+    DateTime fecha = DateTime.parse('${t.fecha}T00:00:00');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final insets = MediaQuery.of(ctx).viewInsets;
+        return Padding(
+          padding: EdgeInsets.only(bottom: insets.bottom),
+          child: StatefulBuilder(
+            builder: (context, setSt) {
+              final cats =
+              catProv.items.where((c) => c.activo && c.tipo == tipo).toList();
+
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Editar transacción',
+                        style: Theme.of(ctx)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(
+                            value: 'gasto',
+                            label: Text('Gasto'),
+                            icon: Icon(Icons.trending_down)),
+                        ButtonSegment(
+                            value: 'ingreso',
+                            label: Text('Ingreso'),
+                            icon: Icon(Icons.trending_up)),
+                      ],
+                      selected: {tipo},
+                      onSelectionChanged: (s) {
+                        setSt(() {
+                          tipo = s.first;
+                          categoriaId = null;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: montoCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Monto',
+                        prefixIcon: Icon(Icons.attach_money),
+                      ),
+                      keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: descCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Descripción (opcional)',
+                        prefixIcon: Icon(Icons.description),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: categoriaId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Categoría',
+                        prefixIcon: Icon(Icons.category),
+                      ),
+                      items: cats
+                          .map((c) => DropdownMenuItem(
+                        value: c.id,
+                        child: Text(c.nombre),
+                      ))
+                          .toList(),
+                      onChanged: (v) => setSt(() => categoriaId = v),
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.calendar_today),
+                      title: Text(
+                          '${fecha.year}-${fecha.month.toString().padLeft(2, '0')}-${fecha.day.toString().padLeft(2, '0')}'),
+                      trailing: const Icon(Icons.edit_calendar),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: fecha,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) setSt(() => fecha = picked);
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            icon: const Icon(Icons.delete_outline,
+                                color: Colors.red),
+                            label: const Text('Eliminar',
+                                style: TextStyle(color: Colors.red)),
+                            onPressed: () async {
+                              final ok = await showDialog<bool>(
+                                context: context,
+                                builder: (d) => AlertDialog(
+                                  title: const Text('Eliminar'),
+                                  content: const Text(
+                                      '¿Eliminar esta transacción?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(d, false),
+                                      child: const Text('Cancelar'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(d, true),
+                                      child: const Text('Eliminar'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (ok == true) {
+                                final done = await txProv.delete(t.id);
+                                if (done && ctx.mounted) Navigator.pop(ctx);
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: FilledButton.icon(
+                            icon: const Icon(Icons.save),
+                            label: const Text('Guardar'),
+                            onPressed: () async {
+                              final monto = double.tryParse(
+                                  montoCtrl.text.replaceAll(',', '.')) ??
+                                  0;
+                              if (monto <= 0 || categoriaId == null) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'Monto > 0 y categoría obligatorios'),
+                                  ),
+                                );
+                                return;
+                              }
+                              final done = await txProv.update(
+                                id: t.id,
+                                monto: monto,
+                                descripcion: descCtrl.text.trim(),
+                                tipo: tipo,
+                                categoriaId: categoriaId!,
+                                fecha: fecha,
+                              );
+                              if (done && ctx.mounted) Navigator.pop(ctx);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -51,12 +238,8 @@ class HomePage extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // Balance card (gradient) con mejor contraste en oscuro
               _balanceCard(context, tx.balanceHoy),
-
               const SizedBox(height: 16),
-
-              // Two summary cards: Income / Expenses (tintes ajustados en oscuro)
               Row(
                 children: [
                   Expanded(
@@ -80,24 +263,23 @@ class HomePage extends StatelessWidget {
                   ),
                 ],
               ),
-
               const SizedBox(height: 16),
-
-              // Section header
               Row(
                 children: [
                   Expanded(
                     child: Text(
                       'Movimientos recientes',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                   ),
                   TextButton(
                     onPressed: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ReportsPage()),
+                        MaterialPageRoute(
+                            builder: (_) => const ReportsPage()),
                       );
                     },
                     child: const Text('Ver todo'),
@@ -105,8 +287,6 @@ class HomePage extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-
-              // Transactions list (tarjetas con color de superficie ajustado)
               if (tx.isLoading)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
@@ -118,17 +298,18 @@ class HomePage extends StatelessWidget {
                 ...tx.today.map((t) {
                   final isIngreso = t.tipo == 'ingreso';
                   final color = isIngreso ? Colors.green : Colors.red;
-
-                  // Buscar categoría sin orElse que devuelva null
                   final matches = cats.where((c) => c.id == t.categoriaId);
                   final cat = matches.isNotEmpty ? matches.first : null;
-
                   final iconWidget = cat != null
                       ? _buildIconWidget(cat.icono, _hexToColor(cat.color))
-                      : Icon(isIngreso ? Icons.add : Icons.remove, color: color);
+                      : Icon(isIngreso ? Icons.add : Icons.remove,
+                      color: color);
 
-                  final subtitle =
-                  cat != null ? cat.nombre : (isIngreso ? 'Ingreso' : 'Gasto');
+                  final titulo =
+                      cat?.nombre ?? (isIngreso ? 'Ingreso' : 'Gasto');
+
+                  final subtitulo =
+                      '${isIngreso ? 'Ingreso' : 'Gasto'} · ${t.fecha}';
 
                   return Card(
                     elevation: 1,
@@ -145,37 +326,25 @@ class HomePage extends StatelessWidget {
                     ),
                     margin: const EdgeInsets.only(bottom: 12),
                     child: ListTile(
-                      contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       leading: CircleAvatar(
                         radius: 20,
-                        backgroundColor:
-                        (isIngreso ? Colors.green : Colors.red).withOpacity(
-                          isDark ? 0.20 : 0.12,
-                        ),
+                        backgroundColor: (isIngreso
+                            ? Colors.green
+                            : Colors.red)
+                            .withOpacity(isDark ? 0.20 : 0.12),
                         child: iconWidget,
                       ),
                       title: Text(
-                        t.descripcion,
+                        titulo,
                         style: const TextStyle(fontWeight: FontWeight.w600),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      subtitle: Row(
-                        children: [
-                          Text(
-                            subtitle,
-                            style: TextStyle(color: scheme.onSurfaceVariant),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            t.fecha,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: scheme.onSurfaceVariant.withOpacity(0.8),
-                            ),
-                          ),
-                        ],
+                      subtitle: Text(
+                        subtitulo,
+                        style: TextStyle(color: scheme.onSurfaceVariant),
                       ),
                       trailing: Text(
                         '${isIngreso ? '+' : '-'}Bs. ${t.monto.toStringAsFixed(2)}',
@@ -184,28 +353,28 @@ class HomePage extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      onTap: () {},
+                      onTap: () => _openEditTransactionSheet(context, t),
                     ),
                   );
                 }),
-
               const SizedBox(height: 120),
             ],
           ),
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _goToAdd(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Agregar'),
+      ),
     );
   }
-
-  // ---------- UI helpers ----------
 
   Widget _balanceCard(BuildContext context, double balance) {
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final positive = balance >= 0;
-
-    // Gradiente con más contraste en modo oscuro
-    final List<Color> gradientColors = positive
+    final gradientColors = positive
         ? [
       scheme.primary.withOpacity(isDark ? 0.95 : 1.0),
       scheme.primary.withOpacity(isDark ? 0.65 : 0.75),
@@ -219,10 +388,9 @@ class HomePage extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: gradientColors,
-        ),
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: gradientColors),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
           color: isDark
@@ -263,6 +431,7 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  // FIX: color de texto para modo claro (antes quedaba blanco también)
   Widget _miniStatCard(
       BuildContext context, {
         required String title,
@@ -272,10 +441,13 @@ class HomePage extends StatelessWidget {
       }) {
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
     final bg = isDark ? color.withOpacity(0.16) : color.withOpacity(0.12);
-    final badgeBg = isDark ? Colors.white.withOpacity(0.08) : color.withOpacity(0.12);
+    final badgeBg =
+    isDark ? Colors.white.withOpacity(0.08) : color.withOpacity(0.12);
     final border = isDark ? color.withOpacity(0.35) : color.withOpacity(0.22);
+
+    final titleColor =
+    isDark ? Colors.white.withOpacity(0.85) : scheme.onSurface; // negro / onSurface en claro
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -304,8 +476,8 @@ class HomePage extends StatelessWidget {
                   title,
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.white.withOpacity(isDark ? 0.9 : 0.7)
-                        .withOpacity(isDark ? 0.9 : 1),
+                    color: titleColor,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -347,7 +519,7 @@ class HomePage extends StatelessWidget {
             const Text('No hay movimientos hoy'),
             const SizedBox(height: 12),
             Text(
-              'Toca el botón + para registrar tu primer movimiento.',
+              'Toca el botón Agregar para registrar tu primer movimiento.',
               style: TextStyle(color: scheme.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
@@ -357,7 +529,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // Icon rendering supporting Material (mi:) and FontAwesome (fa:)
   Widget _buildIconWidget(String code, Color color, {double size = 20}) {
     final spec = _parseIcon(code);
     if (spec.isFa) {
@@ -375,7 +546,6 @@ class HomePage extends StatelessWidget {
   }
 
   static const Map<String, _IconSpec> _iconCatalog = {
-    // Material
     'mi:category': _IconSpec.mi(Icons.category),
     'mi:restaurant': _IconSpec.mi(Icons.restaurant),
     'mi:directions_car': _IconSpec.mi(Icons.directions_car),
@@ -389,8 +559,6 @@ class HomePage extends StatelessWidget {
     'mi:shopping_cart': _IconSpec.mi(Icons.shopping_cart),
     'mi:home': _IconSpec.mi(Icons.home),
     'mi:sports_esports': _IconSpec.mi(Icons.sports_esports),
-
-    // FontAwesome
     'fa:utensils': _IconSpec.fa(FontAwesomeIcons.utensils),
     'fa:cartShopping': _IconSpec.fa(FontAwesomeIcons.cartShopping),
     'fa:car': _IconSpec.fa(FontAwesomeIcons.car),
