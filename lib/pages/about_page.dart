@@ -5,22 +5,19 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 class AboutPage extends StatelessWidget {
   const AboutPage({super.key});
 
-  static final Uri _whatsUri = Uri.parse('https://wa.link/wweg6l');
+  static final Uri _whatsUri = Uri.parse('https://wa.me/59178466952?text=Hola,%20estoy%20interesado%20en%20el%20código%20fuente%20de%20KeyCash');
 
   Future<void> _launchWhatsApp(BuildContext context) async {
-    final ok = await canLaunchUrl(_whatsUri);
-    if (!ok) {
+    if (!await launchUrl(_whatsUri, mode: LaunchMode.externalApplication)) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No se pudo abrir WhatsApp.'),
+            content: Text('No se pudo abrir WhatsApp. Asegúrate de tener WhatsApp instalado, o prueba en un dispositivo real.'),
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
-      return;
     }
-    await launchUrl(_whatsUri, mode: LaunchMode.externalApplication);
   }
 
   @override
@@ -35,7 +32,6 @@ class AboutPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // Detalles de la aplicación
           Card(
             elevation: 2,
             child: Padding(
@@ -56,8 +52,6 @@ class AboutPage extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 20),
-
-                  // Autor
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: CircleAvatar(
@@ -68,8 +62,6 @@ class AboutPage extends StatelessWidget {
                     subtitle: const Text('Miguel Angel Zenteno Orellana'),
                   ),
                   const SizedBox(height: 10),
-
-                  // Tecnologías
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: CircleAvatar(
@@ -88,12 +80,10 @@ class AboutPage extends StatelessWidget {
                       _TechChip('Dart'),
                       _TechChip('Provider'),
                       _TechChip('Google Generative AI (Gemini)'),
+                      _TechChip('PocketBase'),
                     ],
                   ),
-
                   const SizedBox(height: 20),
-
-                  // Fuente / Contacto
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
