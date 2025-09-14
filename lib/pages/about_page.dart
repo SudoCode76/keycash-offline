@@ -80,7 +80,6 @@ class AboutPage extends StatelessWidget {
                       _TechChip('Dart'),
                       _TechChip('Provider'),
                       _TechChip('Google Generative AI (Gemini)'),
-                      _TechChip('PocketBase'),
                     ],
                   ),
                   const SizedBox(height: 20),
