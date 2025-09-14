@@ -69,6 +69,7 @@ class CategoryProvider extends ChangeNotifier {
         icono: icono.trim(),
         activo: activo ?? c.activo,
         created: c.created,
+        orden: c.orden, // conservar
       );
       await _repo.update(updated);
       await load();
@@ -88,5 +89,16 @@ class CategoryProvider extends ChangeNotifier {
   Future<void> delete(String id) async {
     await _repo.delete(id);
     await load();
+  }
+
+  /// Reordena globalmente las categorías según los IDs provistos.
+  Future<void> reorder(List<String> orderedIds) async {
+    try {
+      await _repo.saveOrder(orderedIds);
+      await load();
+    } catch (e) {
+      _error = 'No se pudo reordenar: $e';
+      notifyListeners();
+    }
   }
 }

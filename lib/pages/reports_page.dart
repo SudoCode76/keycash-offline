@@ -88,7 +88,7 @@ class _ReportsView extends StatelessWidget {
             _topCategoriesColumn(context, provider, cats),
             const SizedBox(height: 16),
 
-            // Transacciones por día (contraídas por defecto + edición)
+            // Transacciones por día (contraídas por defecto + edición + totales al expandir)
             _transactionsByDay(context, provider, cats),
 
             const SizedBox(height: 100),
@@ -200,16 +200,19 @@ class _ReportsView extends StatelessWidget {
               final catId = e.value.key;
               final value = e.value.value;
               final idx = e.key + 1;
-              final category =
-              cats.firstWhere((c) => c.id == catId, orElse: () => Category(
-                id: catId,
-                nombre: 'Categoría',
-                tipo: positive ? 'ingreso' : 'gasto',
-                color: positive ? '#4CAF50' : '#F44336',
-                icono: 'mi:category',
-                activo: true,
-                created: '',
-              ));
+              final category = cats.firstWhere(
+                    (c) => c.id == catId,
+                orElse: () => Category(
+                  id: catId,
+                  nombre: 'Categoría',
+                  tipo: positive ? 'ingreso' : 'gasto',
+                  color: positive ? '#4CAF50' : '#F44336',
+                  icono: 'mi:category',
+                  activo: true,
+                  created: '',
+                  orden: 0,
+                ),
+              );
               final color = _hexToColor(category.color);
               final percent =
               grandTotal > 0 ? (value / grandTotal).clamp(0.0, 1.0) : 0.0;
@@ -218,7 +221,6 @@ class _ReportsView extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 6.0),
                 child: Row(
                   children: [
-                    // índice
                     SizedBox(
                       width: 22,
                       child: Text(
@@ -231,7 +233,6 @@ class _ReportsView extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    // nombre + barra
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,7 +257,6 @@ class _ReportsView extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    // monto + porcentaje
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -289,7 +289,7 @@ class _ReportsView extends StatelessWidget {
   Widget _transactionsByDay(
       BuildContext context, ReportProvider provider, List<Category> cats) {
     final scheme = Theme.of(context).colorScheme;
-    final txs = provider.txs; // requiere getter en ReportProvider
+    final txs = provider.txs;
 
     if (txs.isEmpty) {
       return Padding(
@@ -302,13 +302,12 @@ class _ReportsView extends StatelessWidget {
       );
     }
 
-    // Agrupar por fecha (YYYY-MM-DD)
     final Map<String, List<TransactionModel>> grouped = {};
     for (final t in txs) {
       grouped.putIfAbsent(t.fecha, () => []).add(t);
     }
     final dates = grouped.keys.toList()
-      ..sort((a, b) => b.compareTo(a)); // descendente (más reciente primero)
+      ..sort((a, b) => b.compareTo(a));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -324,7 +323,6 @@ class _ReportsView extends StatelessWidget {
         ...dates.map((fecha) {
           final list = grouped[fecha]!..sort((a, b) => b.created.compareTo(a.created));
 
-          // Totales del día
           double ingresos = 0, gastos = 0;
           for (final t in list) {
             if (t.tipo == 'ingreso') ingresos += t.monto;
@@ -334,13 +332,10 @@ class _ReportsView extends StatelessWidget {
           final pos = balanceDia >= 0;
           final chipColor = pos ? Colors.green : Colors.red;
 
-          // Todas CONTRAIDAS por defecto
           const initiallyExpanded = false;
 
           return Theme(
-            data: Theme.of(context).copyWith(
-              dividerColor: Colors.transparent,
-            ),
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
             child: Card(
               elevation: 0,
               margin: const EdgeInsets.only(bottom: 12),
@@ -358,8 +353,7 @@ class _ReportsView extends StatelessWidget {
               child: ExpansionTile(
                 initiallyExpanded: initiallyExpanded,
                 tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-                childrenPadding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                childrenPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 title: Row(
                   children: [
                     Expanded(
@@ -383,8 +377,7 @@ class _ReportsView extends StatelessWidget {
                     const SizedBox(width: 8),
                     CircleAvatar(
                       radius: 14,
-                      backgroundColor:
-                      Theme.of(context).colorScheme.primary.withOpacity(0.10),
+                      backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.10),
                       child: Text(
                         '${list.length}',
                         style: TextStyle(
@@ -397,7 +390,6 @@ class _ReportsView extends StatelessWidget {
                   ],
                 ),
                 children: [
-                  // Totales de ingresos y gastos AL EXPANDIR
                   Padding(
                     padding: const EdgeInsets.fromLTRB(6, 2, 6, 8),
                     child: Row(
@@ -437,6 +429,7 @@ class _ReportsView extends StatelessWidget {
                         icono: 'mi:category',
                         activo: true,
                         created: '',
+                        orden: 0,
                       ),
                     );
                     final catColor = _hexToColor(category.color);
@@ -449,9 +442,7 @@ class _ReportsView extends StatelessWidget {
                         radius: 18,
                         backgroundColor: catColor.withOpacity(0.15),
                         child: Icon(
-                          isIngreso
-                              ? Icons.trending_up_rounded
-                              : Icons.trending_down_rounded,
+                          isIngreso ? Icons.trending_up_rounded : Icons.trending_down_rounded,
                           color: catColor,
                           size: 18,
                         ),
@@ -468,8 +459,7 @@ class _ReportsView extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color:
-                          Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       )
                           : null,
@@ -493,7 +483,6 @@ class _ReportsView extends StatelessWidget {
     );
   }
 
-  // Chip de totales por día (Ingresos / Gastos)
   Widget _dayTotalChip(
       BuildContext context, {
         required String label,
@@ -546,7 +535,6 @@ class _ReportsView extends StatelessWidget {
     );
   }
 
-  // ---------- Sheet de edición (reutiliza lógica de Home) ----------
   void _openEditTransactionSheet(BuildContext context, TransactionModel t) {
     final txProv = context.read<TransactionProvider>();
     final catProv = context.read<CategoryProvider>();
@@ -661,26 +649,21 @@ class _ReportsView extends StatelessWidget {
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            icon: const Icon(Icons.delete_outline,
-                                color: Colors.red),
-                            label: const Text('Eliminar',
-                                style: TextStyle(color: Colors.red)),
+                            icon: const Icon(Icons.delete_outline, color: Colors.red),
+                            label: const Text('Eliminar', style: TextStyle(color: Colors.red)),
                             onPressed: () async {
                               final ok = await showDialog<bool>(
                                 context: context,
                                 builder: (d) => AlertDialog(
                                   title: const Text('Eliminar'),
-                                  content: const Text(
-                                      '¿Eliminar esta transacción?'),
+                                  content: const Text('¿Eliminar esta transacción?'),
                                   actions: [
                                     TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(d, false),
+                                      onPressed: () => Navigator.pop(d, false),
                                       child: const Text('Cancelar'),
                                     ),
                                     TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(d, true),
+                                      onPressed: () => Navigator.pop(d, true),
                                       child: const Text('Eliminar'),
                                     ),
                                   ],
@@ -708,8 +691,7 @@ class _ReportsView extends StatelessWidget {
                               if (monto <= 0 || categoriaId == null) {
                                 ScaffoldMessenger.of(ctx).showSnackBar(
                                   const SnackBar(
-                                    content: Text(
-                                        'Monto > 0 y categoría obligatorios'),
+                                    content: Text('Monto > 0 y categoría obligatorios'),
                                   ),
                                 );
                                 return;
@@ -741,7 +723,6 @@ class _ReportsView extends StatelessWidget {
     );
   }
 
-  // ---------- Cabeceras / tarjetas de totales ----------
   Widget _monthSelector(
       BuildContext context, {
         required int year,
@@ -759,8 +740,7 @@ class _ReportsView extends StatelessWidget {
         color: isDark ? Colors.white.withOpacity(0.05) : scheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color:
-          isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06),
+          color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06),
         ),
       ),
       child: Row(
@@ -875,9 +855,7 @@ class _ReportsView extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withOpacity(0.06)
-              : Colors.black.withOpacity(0.06),
+          color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06),
         ),
       ),
       child: Row(
@@ -909,7 +887,6 @@ class _ReportsView extends StatelessWidget {
     );
   }
 
-  // ---------- Auxiliares ----------
   Widget _errorState(BuildContext context, String message,
       {required Future<void> Function() onRetry}) {
     final scheme = Theme.of(context).colorScheme;

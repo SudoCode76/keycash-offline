@@ -3,13 +3,11 @@ class Category {
   final String nombre;
   final String tipo;   // ingreso | gasto
   final String color;  // #RRGGBB
-  // icono: código con prefijo de pack
-  // - Material Icons:  "mi:category", "mi:restaurant", ...
-  // - FontAwesome:     "fa:utensils", "fa:cartShopping", ...
-  // Si comes de datos antiguos sin prefijo (ej: "category"), se asume Material.
+  // icono: código con prefijo de pack (mi: / fa:)
   final String icono;
   final bool activo;
   final String created;
+  final int orden;
 
   Category({
     required this.id,
@@ -19,6 +17,7 @@ class Category {
     required this.icono,
     required this.activo,
     required this.created,
+    required this.orden,
   });
 
   factory Category.fromMap(Map<String, Object?> map) => Category(
@@ -29,6 +28,7 @@ class Category {
     icono: (map['icono'] as String?) ?? 'mi:category',
     activo: (map['activo'] as int) == 1,
     created: map['created'] as String,
+    orden: (map['orden'] as int?) ?? 0,
   );
 
   Map<String, Object?> toMap() => {
@@ -39,5 +39,6 @@ class Category {
     'icono': icono,
     'activo': activo ? 1 : 0,
     'created': created,
+    'orden': orden,
   };
 }

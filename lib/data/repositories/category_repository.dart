@@ -25,17 +25,22 @@ class CategoryRepository {
       'categorias',
       where: where.isEmpty ? null : where.join(' AND '),
       whereArgs: args.isEmpty ? null : args,
-      orderBy: 'created ASC',
+      orderBy: 'orden ASC, created ASC',
     );
     return rows.map((m) => Category.fromMap(m)).toList();
   }
 
   Future<Category?> getById(String id) async {
     final db = await _db;
-    final rows =
-    await db.query('categorias', where: 'id = ?', whereArgs: [id], limit: 1);
+    final rows = await db.query('categorias', where: 'id = ?', whereArgs: [id], limit: 1);
     if (rows.isEmpty) return null;
     return Category.fromMap(rows.first);
+  }
+
+  Future<int> _nextOrden(Database db) async {
+    final res = await db.rawQuery('SELECT MAX(orden) AS maxo FROM categorias');
+    final maxo = (res.first['maxo'] as int?) ?? 0;
+    return maxo + 1;
   }
 
   Future<Category> create({
@@ -47,6 +52,7 @@ class CategoryRepository {
     final db = await _db;
     final now = DateTime.now().toIso8601String();
     final id = _uuid.v4();
+    final orden = await _nextOrden(db);
     final cat = Category(
       id: id,
       nombre: nombre.trim(),
@@ -55,6 +61,7 @@ class CategoryRepository {
       icono: icono.trim(),
       activo: true,
       created: now,
+      orden: orden,
     );
     await db.insert('categorias', cat.toMap());
     return cat;
@@ -71,15 +78,15 @@ class CategoryRepository {
         where: 'id = ?', whereArgs: [id]);
   }
 
-  /// Asegura y devuelve el id de la categoría por defecto para el tipo (ingreso/gasto).
   Future<String> ensureDefaultCategory(String tipo) async {
     final db = await _db;
     final defaultId = 'default-$tipo';
-    final existing = await db.query('categorias',
-        where: 'id = ?', whereArgs: [defaultId], limit: 1);
+    final existing =
+    await db.query('categorias', where: 'id = ?', whereArgs: [defaultId], limit: 1);
     if (existing.isNotEmpty) return defaultId;
 
     final now = DateTime.now().toIso8601String();
+    final orden = await _nextOrden(db);
     await db.insert('categorias', {
       'id': defaultId,
       'nombre': 'Sin categoría',
@@ -89,24 +96,36 @@ class CategoryRepository {
       'activo': 1,
       'user_id': 'local',
       'created': now,
+      'orden': orden,
     });
     return defaultId;
   }
 
-  /// Al eliminar una categoría:
-  /// - Se reasignan sus transacciones a la categoría por defecto según su tipo.
-  /// - No se permite eliminar las categorías por defecto.
+  Future<void> saveOrder(List<String> orderedIds) async {
+    final db = await _db;
+    await db.transaction((txn) async {
+      final batch = txn.batch();
+      for (int i = 0; i < orderedIds.length; i++) {
+        batch.update(
+          'categorias',
+          {'orden': i + 1},
+          where: 'id = ?',
+          whereArgs: [orderedIds[i]],
+        );
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
   Future<void> delete(String id) async {
     final db = await _db;
     final cat = await getById(id);
     if (cat == null) return;
     if (id.startsWith('default-')) {
-      // No eliminar las categorías por defecto.
-      return;
+      return; // no eliminar por defecto
     }
     final defaultId = await ensureDefaultCategory(cat.tipo);
 
-    // Reasignar transacciones
     await db.update(
       'transacciones',
       {'categoria_id': defaultId},
@@ -114,7 +133,6 @@ class CategoryRepository {
       whereArgs: [id],
     );
 
-    // Eliminar la categoría
     await db.delete('categorias', where: 'id = ?', whereArgs: [id]);
   }
 }

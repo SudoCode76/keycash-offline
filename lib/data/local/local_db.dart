@@ -24,19 +24,20 @@ class LocalDb {
 
     return await openDatabase(
       dbPath,
-      version: 2, // <- bump de versión para aplicar onUpgrade
+      version: 3, // bump a v3 para columna 'orden'
       onCreate: (db, version) async {
-        // Categorías (con user_id y default 'local')
+        // Categorías (con user_id y default 'local' + orden)
         await db.execute('''
           CREATE TABLE categorias(
             id TEXT PRIMARY KEY,
             nombre TEXT NOT NULL,
             tipo TEXT NOT NULL,          -- ingreso | gasto
             color TEXT NOT NULL,         -- #RRGGBB
-            icono TEXT NOT NULL,         -- nombre de icono Material
+            icono TEXT NOT NULL,         -- nombre de icono Material/FA (con o sin prefijo)
             activo INTEGER NOT NULL,     -- 1/0
             user_id TEXT NOT NULL DEFAULT 'local',
-            created TEXT NOT NULL
+            created TEXT NOT NULL,
+            orden INTEGER NOT NULL
           )
         ''');
 
@@ -58,9 +59,8 @@ class LocalDb {
         await _seedDefaultCategories(db);
       },
       onUpgrade: (db, oldV, newV) async {
-        // Migración suave a v2: asegurar columnas user_id / usuario_id y rellenar con 'local'
+        // Migración a v2 (ya existente)
         if (oldV < 2) {
-          // Asegura user_id en categorias
           final colsCat = await db.rawQuery("PRAGMA table_info(categorias)");
           final hasUserId = colsCat.any((c) => (c['name'] as String) == 'user_id');
           if (!hasUserId) {
@@ -68,12 +68,29 @@ class LocalDb {
             await db.update('categorias', {'user_id': 'local'});
           }
 
-          // Asegura usuario_id en transacciones
           final colsTx = await db.rawQuery("PRAGMA table_info(transacciones)");
           final hasUsuarioId = colsTx.any((c) => (c['name'] as String) == 'usuario_id');
           if (!hasUsuarioId) {
             await db.execute("ALTER TABLE transacciones ADD COLUMN usuario_id TEXT");
             await db.update('transacciones', {'usuario_id': 'local'});
+          }
+        }
+
+        // Migración a v3: columna 'orden' y rellenado incremental por created ASC
+        if (oldV < 3) {
+          final cols = await db.rawQuery("PRAGMA table_info(categorias)");
+          final hasOrden = cols.any((c) => (c['name'] as String) == 'orden');
+          if (!hasOrden) {
+            await db.execute("ALTER TABLE categorias ADD COLUMN orden INTEGER");
+            final rows = await db.query('categorias', orderBy: 'created ASC');
+            int i = 1;
+            final batch = db.batch();
+            for (final r in rows) {
+              final id = r['id'] as String;
+              batch.update('categorias', {'orden': i}, where: 'id = ?', whereArgs: [id]);
+              i++;
+            }
+            await batch.commit(noResult: true);
           }
         }
       },
@@ -97,6 +114,7 @@ class LocalDb {
     ];
 
     final batch = db.batch();
+    int orden = 1;
     for (final c in defaults) {
       batch.insert('categorias', {
         'id': const Uuid().v4(),
@@ -105,8 +123,9 @@ class LocalDb {
         'color': c['color'],
         'icono': c['icono'],
         'activo': 1,
-        'user_id': 'local', // <- importante
+        'user_id': 'local',
         'created': now,
+        'orden': orden++,
       });
     }
     await batch.commit(noResult: true);

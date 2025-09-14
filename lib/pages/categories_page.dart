@@ -14,6 +14,14 @@ class CategoriesPage extends StatefulWidget {
 
 class _CategoriesPageState extends State<CategoriesPage> {
   String _filter = 'todos';
+  bool _reorderMode = false;
+  final _reorderScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _reorderScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,20 +38,29 @@ class _CategoriesPageState extends State<CategoriesPage> {
       appBar: AppBar(
         title: const Text('Categorías'),
         actions: [
+          if (!_reorderMode)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Recargar',
+              onPressed: () => context.read<CategoryProvider>().load(),
+            ),
           IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Recargar',
-            onPressed: () => context.read<CategoryProvider>().load(),
+            icon: Icon(_reorderMode ? Icons.check_circle : Icons.reorder),
+            tooltip: _reorderMode ? 'Salir de reordenar' : 'Reordenar',
+            onPressed: () => setState(() => _reorderMode = !_reorderMode),
           ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'Nueva categoría',
-            onPressed: () => _openForm(context),
-          ),
+          if (!_reorderMode)
+            IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: 'Nueva categoría',
+              onPressed: () => _openForm(context),
+            ),
         ],
       ),
       body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
+          : _reorderMode
+          ? _buildReorderableView(context, provider)
           : RefreshIndicator(
         onRefresh: () => context.read<CategoryProvider>().load(),
         color: scheme.primary,
@@ -124,19 +141,16 @@ class _CategoriesPageState extends State<CategoriesPage> {
                   padding: const EdgeInsets.all(12),
                   child: Row(
                     children: [
-                      Icon(Icons.error,
-                          color: scheme.onErrorContainer),
+                      Icon(Icons.error, color: scheme.onErrorContainer),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           provider.error!,
-                          style: TextStyle(
-                              color: scheme.onErrorContainer),
+                          style: TextStyle(color: scheme.onErrorContainer),
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.close,
-                            color: scheme.onErrorContainer),
+                        icon: Icon(Icons.close, color: scheme.onErrorContainer),
                         onPressed: () =>
                             context.read<CategoryProvider>().load(),
                       ),
@@ -149,11 +163,84 @@ class _CategoriesPageState extends State<CategoriesPage> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: _reorderMode
+          ? null
+          : FloatingActionButton.extended(
         onPressed: () => _openForm(context),
         icon: const Icon(Icons.add),
         label: const Text('Agregar'),
       ),
+    );
+  }
+
+  Widget _buildReorderableView(BuildContext context, CategoryProvider provider) {
+    final scheme = Theme.of(context).colorScheme;
+    // Trabajamos con TODAS las categorías para ordenar globalmente.
+    final items = provider.items.toList();
+    return Column(
+      children: [
+        Material(
+          color: scheme.surface,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: scheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Arrastra para reordenar tus categorías. Se guarda automáticamente al soltar.',
+                    style: TextStyle(color: scheme.onSurfaceVariant),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: ReorderableListView.builder(
+            buildDefaultDragHandles: false,
+            padding: const EdgeInsets.all(16),
+            itemCount: items.length,
+            onReorder: (oldIndex, newIndex) async {
+              setState(() {
+                if (newIndex > oldIndex) newIndex -= 1;
+                final item = items.removeAt(oldIndex);
+                items.insert(newIndex, item);
+              });
+              // Guardar orden
+              await provider.reorder(items.map((e) => e.id).toList());
+            },
+            itemBuilder: (context, index) {
+              final c = items[index];
+              final color = _hexToColor(c.color);
+              return Card(
+                key: ValueKey(c.id),
+                elevation: 1,
+                child: ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: color.withOpacity(0.15),
+                    child: _buildIconWidget(c.icono, color, size: 18),
+                  ),
+                  title: Text(
+                    c.nombre,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    c.tipo == 'ingreso' ? 'Ingreso' : 'Gasto',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                  trailing: ReorderableDragStartListener(
+                    index: index,
+                    child: Icon(Icons.drag_handle, color: Theme.of(context).colorScheme.primary),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -212,9 +299,8 @@ class _CategoriesPageState extends State<CategoriesPage> {
                           labelText: 'Nombre',
                           prefixIcon: Icon(Icons.label_outline),
                         ),
-                        validator: (v) => (v == null || v.trim().length < 3)
-                            ? 'Mínimo 3 caracteres'
-                            : null,
+                        validator: (v) =>
+                        (v == null || v.trim().length < 3) ? 'Mínimo 3 caracteres' : null,
                       ),
                       const SizedBox(height: 12),
                       SegmentedButton<String>(
@@ -229,15 +315,13 @@ class _CategoriesPageState extends State<CategoriesPage> {
                               icon: Icon(Icons.trending_down)),
                         ],
                         selected: {tipo},
-                        onSelectionChanged: (s) =>
-                            setModalState(() => tipo = s.first),
+                        onSelectionChanged: (s) => setModalState(() => tipo = s.first),
                       ),
                       const SizedBox(height: 12),
                       InputDecorator(
                         decoration: const InputDecoration(
                           labelText: 'Icono',
-                          border: OutlineInputBorder(
-                              borderSide: BorderSide.none),
+                          border: OutlineInputBorder(borderSide: BorderSide.none),
                           filled: true,
                         ),
                         child: Wrap(
@@ -246,32 +330,24 @@ class _CategoriesPageState extends State<CategoriesPage> {
                           children: _iconCatalog.entries.map((e) {
                             final selected = iconCode == e.key;
                             return InkWell(
-                              onTap: () =>
-                                  setModalState(() => iconCode = e.key),
+                              onTap: () => setModalState(() => iconCode = e.key),
                               borderRadius: BorderRadius.circular(10),
                               child: Container(
                                 width: 48,
                                 height: 48,
                                 decoration: BoxDecoration(
                                   color: selected
-                                      ? Theme.of(context)
-                                      .colorScheme
-                                      .primary
-                                      .withOpacity(0.12)
+                                      ? Theme.of(context).colorScheme.primary.withOpacity(0.12)
                                       : Colors.transparent,
                                   border: Border.all(
                                     color: selected
-                                        ? Theme.of(context)
-                                        .colorScheme
-                                        .primary
+                                        ? Theme.of(context).colorScheme.primary
                                         : Colors.grey.shade300,
                                   ),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 alignment: Alignment.center,
-                                child: _buildIconWidget(
-                                    e.key, _hexToColor(colorHex),
-                                    size: 20),
+                                child: _buildIconWidget(e.key, _hexToColor(colorHex), size: 20),
                               ),
                             );
                           }).toList(),
@@ -281,8 +357,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                       InputDecorator(
                         decoration: const InputDecoration(
                           labelText: 'Color',
-                          border: OutlineInputBorder(
-                              borderSide: BorderSide.none),
+                          border: OutlineInputBorder(borderSide: BorderSide.none),
                           filled: true,
                         ),
                         child: Column(
@@ -292,12 +367,9 @@ class _CategoriesPageState extends State<CategoriesPage> {
                               spacing: 8,
                               runSpacing: 8,
                               children: _presetColors.map((h) {
-                                final selected =
-                                    colorHex.toUpperCase() ==
-                                        h.toUpperCase();
+                                final selected = colorHex.toUpperCase() == h.toUpperCase();
                                 return InkWell(
-                                  onTap: () =>
-                                      setModalState(() => colorHex = h),
+                                  onTap: () => setModalState(() => colorHex = h),
                                   borderRadius: BorderRadius.circular(16),
                                   child: Container(
                                     width: 28,
@@ -306,9 +378,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                                       color: _hexToColor(h),
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: selected
-                                            ? Colors.black87
-                                            : Colors.white,
+                                        color: selected ? Colors.black87 : Colors.white,
                                         width: selected ? 2 : 1,
                                       ),
                                     ),
@@ -321,14 +391,10 @@ class _CategoriesPageState extends State<CategoriesPage> {
                               initialValue: colorHex,
                               decoration: const InputDecoration(
                                 hintText: '#RRGGBB',
-                                prefixIcon:
-                                Icon(Icons.color_lens_outlined),
+                                prefixIcon: Icon(Icons.color_lens_outlined),
                               ),
-                              onChanged: (v) =>
-                                  setModalState(() => colorHex = v.trim()),
-                              validator: (v) => _isValidHex(v ?? '')
-                                  ? null
-                                  : 'Hex inválido (ej: #FF5722)',
+                              onChanged: (v) => setModalState(() => colorHex = v.trim()),
+                              validator: (v) => _isValidHex(v ?? '') ? null : 'Hex inválido (ej: #FF5722)',
                             ),
                           ],
                         ),
@@ -339,8 +405,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                           if (isEdit)
                             Expanded(
                               child: OutlinedButton.icon(
-                                icon: const Icon(Icons.delete_outline,
-                                    color: Colors.red),
+                                icon: const Icon(Icons.delete_outline, color: Colors.red),
                                 label: const Text(
                                   'Eliminar',
                                   style: TextStyle(color: Colors.red),
@@ -350,17 +415,14 @@ class _CategoriesPageState extends State<CategoriesPage> {
                                     context: context,
                                     builder: (d) => AlertDialog(
                                       title: const Text('Eliminar'),
-                                      content: Text(
-                                          '¿Eliminar la categoría "${category!.nombre}"?'),
+                                      content: Text('¿Eliminar la categoría "${category!.nombre}"?'),
                                       actions: [
                                         TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(d, false),
+                                          onPressed: () => Navigator.pop(d, false),
                                           child: const Text('Cancelar'),
                                         ),
                                         TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(d, true),
+                                          onPressed: () => Navigator.pop(d, true),
                                           child: const Text('Eliminar'),
                                         ),
                                       ],
