@@ -7,6 +7,7 @@ import '../providers/transaction_provider.dart';
 
 import '../data/models/category.dart';
 import '../data/models/transaction.dart';
+import '../widgets/large_title_scaffold.dart';
 
 class ReportsPage extends StatelessWidget {
   const ReportsPage({super.key});
@@ -26,11 +27,10 @@ class _ReportsView extends StatelessWidget {
     final cats = context.watch<CategoryProvider>().items;
     final scheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      backgroundColor: scheme.background,
-      appBar: AppBar(
-        title: const Text('Reportes Mensuales'),
-        centerTitle: true,
+    if (provider.isLoading) {
+      return LargeTitleScaffold(
+        title: 'Reportes',
+        size: TitleSize.compact,
         actions: [
           IconButton(
             tooltip: 'Recargar',
@@ -38,67 +38,83 @@ class _ReportsView extends StatelessWidget {
             onPressed: provider.load,
           ),
         ],
-      ),
-      body: provider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : provider.error != null
-          ? _errorState(context, provider.error!, onRetry: provider.load)
-          : RefreshIndicator(
-        onRefresh: provider.load,
-        color: scheme.primary,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+        children: const [
+          SizedBox(height: 180, child: Center(child: CircularProgressIndicator())),
+        ],
+      );
+    }
+
+    if (provider.error != null) {
+      return LargeTitleScaffold(
+        title: 'Reportes',
+        size: TitleSize.compact,
+        actions: [
+          IconButton(
+            tooltip: 'Recargar',
+            icon: const Icon(Icons.refresh),
+            onPressed: provider.load,
+          ),
+        ],
+        children: [
+          _errorState(context, provider.error!, onRetry: provider.load),
+        ],
+      );
+    }
+
+    return LargeTitleScaffold(
+      title: 'Reportes',
+      size: TitleSize.compact,
+      actions: [
+        IconButton(
+          tooltip: 'Recargar',
+          icon: const Icon(Icons.refresh),
+          onPressed: provider.load,
+        ),
+      ],
+      children: [
+        _monthSelector(
+          context,
+          year: provider.year,
+          month: provider.month,
+          onPrev: provider.prevMonth,
+          onNext: provider.nextMonth,
+        ),
+        const SizedBox(height: 12),
+        Row(
           children: [
-            _monthSelector(
-              context,
-              year: provider.year,
-              month: provider.month,
-              onPrev: provider.prevMonth,
-              onNext: provider.nextMonth,
+            Expanded(
+              child: _totalCard(
+                context,
+                title: 'Ingresos',
+                value: provider.totalIngresos,
+                color: Colors.green,
+                icon: Icons.arrow_upward_rounded,
+              ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _totalCard(
-                    context,
-                    title: 'Ingresos',
-                    value: provider.totalIngresos,
-                    color: Colors.green,
-                    icon: Icons.arrow_upward_rounded,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _totalCard(
-                    context,
-                    title: 'Gastos',
-                    value: provider.totalGastos,
-                    color: Colors.red,
-                    icon: Icons.arrow_downward_rounded,
-                  ),
-                ),
-              ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: _totalCard(
+                context,
+                title: 'Gastos',
+                value: provider.totalGastos,
+                color: Colors.red,
+                icon: Icons.arrow_downward_rounded,
+              ),
             ),
-            const SizedBox(height: 12),
-            _totalBalanceCard(context, provider.balance),
-            const SizedBox(height: 16),
-
-            // Top categorías en columna: Gastos debajo de Ingresos
-            _topCategoriesColumn(context, provider, cats),
-            const SizedBox(height: 16),
-
-            // Transacciones por día (contraídas por defecto + edición + totales al expandir)
-            _transactionsByDay(context, provider, cats),
-
-            const SizedBox(height: 100),
           ],
         ),
-      ),
+        const SizedBox(height: 12),
+        _totalBalanceCard(context, provider.balance),
+        const SizedBox(height: 16),
+        _topCategoriesColumn(context, provider, cats),
+        const SizedBox(height: 16),
+        _transactionsByDay(context, provider, cats),
+        const SizedBox(height: 100),
+      ],
     );
   }
 
-  // ---------- Top categorías (vertical: Ingresos y debajo Gastos) ----------
+  // ---------- Top categorías ----------
   Widget _topCategoriesColumn(
       BuildContext context, ReportProvider provider, List<Category> cats) {
     return Column(
@@ -156,8 +172,9 @@ class _ReportsView extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color:
-          isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06),
+          color: isDark
+              ? Colors.white.withOpacity(0.06)
+              : Colors.black.withOpacity(0.06),
         ),
       ),
       padding: const EdgeInsets.all(12),
@@ -174,7 +191,9 @@ class _ReportsView extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  positive ? Icons.north_east_rounded : Icons.south_east_rounded,
+                  positive
+                      ? Icons.north_east_rounded
+                      : Icons.south_east_rounded,
                   color: headerColor,
                   size: 18,
                 ),
@@ -250,7 +269,8 @@ class _ReportsView extends StatelessWidget {
                               minHeight: 6,
                               value: percent,
                               backgroundColor: color.withOpacity(0.15),
-                              valueColor: AlwaysStoppedAnimation<Color>(color),
+                              valueColor:
+                              AlwaysStoppedAnimation<Color>(color),
                             ),
                           ),
                         ],
@@ -285,7 +305,7 @@ class _ReportsView extends StatelessWidget {
     );
   }
 
-  // ---------- Transacciones por día (contraídas por defecto + edición + totales al expandir) ----------
+  // ---------- Transacciones por día ----------
   Widget _transactionsByDay(
       BuildContext context, ReportProvider provider, List<Category> cats) {
     final scheme = Theme.of(context).colorScheme;
@@ -306,8 +326,7 @@ class _ReportsView extends StatelessWidget {
     for (final t in txs) {
       grouped.putIfAbsent(t.fecha, () => []).add(t);
     }
-    final dates = grouped.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
+    final dates = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,7 +372,8 @@ class _ReportsView extends StatelessWidget {
               child: ExpansionTile(
                 initiallyExpanded: initiallyExpanded,
                 tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-                childrenPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                childrenPadding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 title: Row(
                   children: [
                     Expanded(
@@ -377,7 +397,10 @@ class _ReportsView extends StatelessWidget {
                     const SizedBox(width: 8),
                     CircleAvatar(
                       radius: 14,
-                      backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.10),
+                      backgroundColor: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.10),
                       child: Text(
                         '${list.length}',
                         style: TextStyle(
@@ -442,7 +465,9 @@ class _ReportsView extends StatelessWidget {
                         radius: 18,
                         backgroundColor: catColor.withOpacity(0.15),
                         child: Icon(
-                          isIngreso ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                          isIngreso
+                              ? Icons.trending_up_rounded
+                              : Icons.trending_down_rounded,
                           color: catColor,
                           size: 18,
                         ),
@@ -459,7 +484,9 @@ class _ReportsView extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant,
                         ),
                       )
                           : null,
@@ -507,7 +534,8 @@ class _ReportsView extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.08) : color.withOpacity(0.12),
+              color:
+              isDark ? Colors.white.withOpacity(0.08) : color.withOpacity(0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 18, color: color),
@@ -691,7 +719,8 @@ class _ReportsView extends StatelessWidget {
                               if (monto <= 0 || categoriaId == null) {
                                 ScaffoldMessenger.of(ctx).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Monto > 0 y categoría obligatorios'),
+                                    content:
+                                    Text('Monto > 0 y categoría obligatorios'),
                                   ),
                                 );
                                 return;
@@ -740,7 +769,9 @@ class _ReportsView extends StatelessWidget {
         color: isDark ? Colors.white.withOpacity(0.05) : scheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06),
+          color: isDark
+              ? Colors.white.withOpacity(0.06)
+              : Colors.black.withOpacity(0.06),
         ),
       ),
       child: Row(
@@ -795,7 +826,8 @@ class _ReportsView extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withOpacity(0.08) : color.withOpacity(0.12),
+              color:
+              isDark ? Colors.white.withOpacity(0.08) : color.withOpacity(0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, size: 20, color: color),
@@ -855,13 +887,16 @@ class _ReportsView extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06),
+          color:
+          isDark ? Colors.white.withOpacity(0.06) : Colors.black.withOpacity(0.06),
         ),
       ),
       child: Row(
         children: [
           Icon(
-            positive ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+            positive
+                ? Icons.trending_up_rounded
+                : Icons.trending_down_rounded,
             color: Colors.white,
           ),
           const SizedBox(width: 10),

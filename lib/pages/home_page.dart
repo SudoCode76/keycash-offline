@@ -5,9 +5,12 @@ import 'package:provider/provider.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import 'add_transaction_page.dart';
-import 'categories_page.dart';
 import 'reports_page.dart';
 import '../data/models/transaction.dart';
+import '../widgets/balance_card.dart';
+import '../widgets/ui/stat_chip.dart';
+import '../widgets/ui/section_header.dart';
+import '../widgets/large_title_scaffold.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -214,285 +217,118 @@ class HomePage extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: scheme.background,
-      appBar: AppBar(
-        title: const Text('KeyCash Offline'),
-        centerTitle: false,
-        actions: [
-          IconButton(
-            tooltip: 'Categorías',
-            icon: const Icon(Icons.category_outlined),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const CategoriesPage()),
-              );
-            },
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () => context.read<TransactionProvider>().loadToday(),
-          color: scheme.primary,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _balanceCard(context, tx.balanceHoy),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _miniStatCard(
-                      context,
-                      title: 'Ingresos',
-                      amount: tx.ingresosHoy,
-                      color: Colors.green,
-                      icon: Icons.arrow_upward_rounded,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _miniStatCard(
-                      context,
-                      title: 'Gastos',
-                      amount: tx.gastosHoy,
-                      color: Colors.red,
-                      icon: Icons.arrow_downward_rounded,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Movimientos recientes',
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const ReportsPage()),
-                      );
-                    },
-                    child: const Text('Ver todo'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (tx.isLoading)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (tx.today.isEmpty)
-                _emptyState(context)
-              else
-                ...tx.today.map((t) {
-                  final isIngreso = t.tipo == 'ingreso';
-                  final color = isIngreso ? Colors.green : Colors.red;
-                  final matches = cats.where((c) => c.id == t.categoriaId);
-                  final cat = matches.isNotEmpty ? matches.first : null;
-                  final iconWidget = cat != null
-                      ? _buildIconWidget(cat.icono, _hexToColor(cat.color))
-                      : Icon(isIngreso ? Icons.add : Icons.remove,
-                      color: color);
-
-                  final titulo =
-                      cat?.nombre ?? (isIngreso ? 'Ingreso' : 'Gasto');
-
-                  final subtitulo =
-                      '${isIngreso ? 'Ingreso' : 'Gasto'} · ${t.fecha}';
-
-                  return Card(
-                    elevation: 1,
-                    color: isDark
-                        ? Colors.white.withOpacity(0.05)
-                        : scheme.surface,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: BorderSide(
-                        color: isDark
-                            ? Colors.white.withOpacity(0.06)
-                            : Colors.black.withOpacity(0.06),
-                      ),
-                    ),
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      leading: CircleAvatar(
-                        radius: 20,
-                        backgroundColor: (isIngreso
-                            ? Colors.green
-                            : Colors.red)
-                            .withOpacity(isDark ? 0.20 : 0.12),
-                        child: iconWidget,
-                      ),
-                      title: Text(
-                        titulo,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        subtitulo,
-                        style: TextStyle(color: scheme.onSurfaceVariant),
-                      ),
-                      trailing: Text(
-                        '${isIngreso ? '+' : '-'}Bs. ${t.monto.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          color: color,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      onTap: () => _openEditTransactionSheet(context, t),
-                    ),
-                  );
-                }),
-              const SizedBox(height: 120),
-            ],
-          ),
-        ),
-      ),
+    return LargeTitleScaffold(
+      title: 'Inicio',
+      size: TitleSize.compact,
+      contentTopSpacing: 4,
+      actions: const [],
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _goToAdd(context),
         icon: const Icon(Icons.add),
         label: const Text('Agregar'),
       ),
-    );
-  }
-
-  Widget _balanceCard(BuildContext context, double balance) {
-    final scheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final positive = balance >= 0;
-    final gradientColors = positive
-        ? [
-      scheme.primary.withOpacity(isDark ? 0.95 : 1.0),
-      scheme.primary.withOpacity(isDark ? 0.65 : 0.75),
-    ]
-        : [
-      Colors.orange.withOpacity(isDark ? 0.9 : 1.0),
-      Colors.orange.withOpacity(isDark ? 0.6 : 0.75),
-    ];
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: gradientColors),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withOpacity(0.06)
-              : Colors.black.withOpacity(0.06),
+      children: [
+        BalanceCard(balance: tx.balanceHoy),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: StatChip(
+                icon: Icons.arrow_upward_rounded,
+                label: 'Ingresos',
+                value: 'Bs. ${tx.ingresosHoy.toStringAsFixed(2)}',
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: StatChip(
+                icon: Icons.arrow_downward_rounded,
+                label: 'Gastos',
+                value: 'Bs. ${tx.gastosHoy.toStringAsFixed(2)}',
+                color: Colors.red,
+              ),
+            ),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: (isDark ? Colors.black : scheme.primary)
-                .withOpacity(isDark ? 0.35 : 0.25),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
+        const SizedBox(height: 16),
+        SectionHeader(
+          title: 'Movimientos recientes',
+          trailing: TextButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ReportsPage()),
+              );
+            },
+            child: const Text('Ver todo'),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Tu balance',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Bs. ${balance.toStringAsFixed(2)}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 32,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+        const SizedBox(height: 8),
+        if (tx.isLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (tx.today.isEmpty)
+          _emptyState(context)
+        else
+          ...tx.today.map((t) {
+            final isIngreso = t.tipo == 'ingreso';
+            final color = isIngreso ? Colors.green : Colors.red;
+            final matches = cats.where((c) => c.id == t.categoriaId);
+            final cat = matches.isNotEmpty ? matches.first : null;
+            final iconWidget = cat != null
+                ? _buildIconWidget(cat.icono, _hexToColor(cat.color))
+                : Icon(isIngreso ? Icons.add : Icons.remove, color: color);
 
-  // FIX: color de texto para modo claro (antes quedaba blanco también)
-  Widget _miniStatCard(
-      BuildContext context, {
-        required String title,
-        required double amount,
-        required Color color,
-        required IconData icon,
-      }) {
-    final scheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? color.withOpacity(0.16) : color.withOpacity(0.12);
-    final badgeBg =
-    isDark ? Colors.white.withOpacity(0.08) : color.withOpacity(0.12);
-    final border = isDark ? color.withOpacity(0.35) : color.withOpacity(0.22);
+            final titulo = cat?.nombre ?? (isIngreso ? 'Ingreso' : 'Gasto');
+            final subtitulo = '${isIngreso ? 'Ingreso' : 'Gasto'} · ${t.fecha}';
 
-    final titleColor =
-    isDark ? Colors.white.withOpacity(0.85) : scheme.onSurface; // negro / onSurface en claro
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: border, width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: badgeBg,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 20, color: color),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: titleColor,
-                    fontWeight: FontWeight.w600,
-                  ),
+            return Card(
+              elevation: 0,
+              color: isDark ? const Color(0xFF171936) : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : Colors.black.withValues(alpha: 0.06),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  'Bs. ${amount.toStringAsFixed(2)}',
+              ),
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListTile(
+                contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: CircleAvatar(
+                  radius: 20,
+                  backgroundColor:
+                  (isIngreso ? Colors.green : Colors.red)
+                      .withValues(alpha: isDark ? 0.20 : 0.12),
+                  child: iconWidget,
+                ),
+                title: Text(
+                  titulo,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  subtitulo,
+                  style: TextStyle(color: scheme.onSurfaceVariant),
+                ),
+                trailing: Text(
+                  '${isIngreso ? '+' : '-'}Bs. ${t.monto.toStringAsFixed(2)}',
                   style: TextStyle(
                     color: color,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
+                onTap: () => _openEditTransactionSheet(context, t),
+              ),
+            );
+          }),
+        const SizedBox(height: 120),
+      ],
     );
   }
 
@@ -500,14 +336,14 @@ class HomePage extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
-      elevation: 1,
-      color: isDark ? Colors.white.withOpacity(0.05) : scheme.surface,
+      elevation: 0,
+      color: isDark ? const Color(0xFF171936) : Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
           color: isDark
-              ? Colors.white.withOpacity(0.06)
-              : Colors.black.withOpacity(0.06),
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.06),
         ),
       ),
       child: Padding(

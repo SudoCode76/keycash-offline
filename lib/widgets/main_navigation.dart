@@ -39,60 +39,63 @@ class _MainNavigationState extends State<MainNavigation> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: scheme.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: IndexedStack(
         index: _selectedIndex,
         children: _pages,
       ),
-      // FAB central eliminado (solo queda el FAB dentro de HomePage)
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: scheme.surface,
-          border: Border(
-            top: BorderSide(
-              color: isDark
-                  ? Colors.white.withOpacity(0.06)
-                  : Colors.black.withOpacity(0.06),
-            ),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.25 : 0.08),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: GNav(
-              rippleColor: scheme.primary.withOpacity(isDark ? 0.12 : 0.1),
-              hoverColor: scheme.primary.withOpacity(isDark ? 0.10 : 0.08),
-              haptic: true,
-              tabBorderRadius: 16,
-              tabActiveBorder: Border.all(
-                color: scheme.primary.withOpacity(isDark ? 0.25 : 0.15),
-                width: 1,
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF151738) : Colors.white,
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : Colors.black.withValues(alpha: 0.06),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.08),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
-              curve: Curves.easeInOut,
-              duration: const Duration(milliseconds: 300),
-              gap: 0,
-              color: scheme.onSurfaceVariant,
-              activeColor: scheme.primary,
-              iconSize: 24,
-              tabBackgroundColor:
-              scheme.primary.withOpacity(isDark ? 0.12 : 0.07),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              selectedIndex: _selectedIndex,
-              onTabChange: (index) => setState(() => _selectedIndex = index),
-              tabs: const <GButton>[
-                GButton(icon: Icons.home_rounded),
-                GButton(icon: Icons.analytics_rounded),
-                GButton(icon: Icons.category_rounded),
-                GButton(icon: Icons.chat_bubble_outline_rounded),
-                GButton(icon: Icons.person_rounded),
-              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                child: GNav(
+                  rippleColor: scheme.primary.withValues(alpha: isDark ? 0.12 : 0.10),
+                  hoverColor: scheme.primary.withValues(alpha: isDark ? 0.10 : 0.08),
+                  haptic: true,
+                  tabBorderRadius: 16,
+                  tabActiveBorder: Border.all(
+                    color: scheme.primary.withValues(alpha: isDark ? 0.25 : 0.15),
+                    width: 1,
+                  ),
+                  curve: Curves.easeInOut,
+                  duration: const Duration(milliseconds: 300),
+                  gap: 6,
+                  color: scheme.onSurfaceVariant,
+                  activeColor: scheme.primary,
+                  iconSize: 22,
+                  tabBackgroundColor: scheme.primary.withValues(alpha: isDark ? 0.12 : 0.08),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  selectedIndex: _selectedIndex,
+                  onTabChange: (index) => setState(() => _selectedIndex = index),
+                  tabs: const <GButton>[
+                    GButton(icon: Icons.home_rounded, text: 'Inicio'),
+                    GButton(icon: Icons.analytics_rounded, text: 'Reportes'),
+                    GButton(icon: Icons.category_rounded, text: 'Categorías'),
+                    GButton(icon: Icons.chat_bubble_outline_rounded, text: 'Asistente'),
+                    GButton(icon: Icons.person_rounded, text: 'Acerca'),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/category_provider.dart';
 import '../data/models/category.dart';
+import '../widgets/large_title_scaffold.dart';
 
 class CategoriesPage extends StatefulWidget {
   const CategoriesPage({super.key});
@@ -33,143 +34,139 @@ class _CategoriesPageState extends State<CategoriesPage> {
       return c.tipo == _filter;
     }).toList();
 
-    return Scaffold(
-      backgroundColor: scheme.background,
-      appBar: AppBar(
-        title: const Text('Categorías'),
-        actions: [
-          if (!_reorderMode)
+    // Cuando está en reordenar, usamos un Scaffold normal para aprovechar Expanded.
+    if (_reorderMode) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          title: const Text('Categorías'),
+          actions: [
             IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Recargar',
-              onPressed: () => context.read<CategoryProvider>().load(),
+              icon: const Icon(Icons.check_circle),
+              tooltip: 'Salir de reordenar',
+              onPressed: () => setState(() => _reorderMode = false),
             ),
-          IconButton(
-            icon: Icon(_reorderMode ? Icons.check_circle : Icons.reorder),
-            tooltip: _reorderMode ? 'Salir de reordenar' : 'Reordenar',
-            onPressed: () => setState(() => _reorderMode = !_reorderMode),
-          ),
-          if (!_reorderMode)
-            IconButton(
-              icon: const Icon(Icons.add),
-              tooltip: 'Nueva categoría',
-              onPressed: () => _openForm(context),
-            ),
-        ],
-      ),
-      body: provider.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _reorderMode
-          ? _buildReorderableView(context, provider)
-          : RefreshIndicator(
-        onRefresh: () => context.read<CategoryProvider>().load(),
-        color: scheme.primary,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+          ],
+        ),
+        body: _buildReorderableView(context, provider),
+      );
+    }
+
+    return LargeTitleScaffold(
+      title: 'Categorías',
+      size: TitleSize.compact,
+      contentTopSpacing: 4,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          tooltip: 'Recargar',
+          onPressed: () => context.read<CategoryProvider>().load(),
+        ),
+        IconButton(
+          icon: const Icon(Icons.reorder),
+          tooltip: 'Reordenar',
+          onPressed: () => setState(() => _reorderMode = true),
+        ),
+        IconButton(
+          icon: const Icon(Icons.add),
+          tooltip: 'Nueva categoría',
+          onPressed: () => _openForm(context),
+        ),
+      ],
+      children: [
+        Wrap(
+          spacing: 8,
           children: [
-            Wrap(
-              spacing: 8,
-              children: [
-                ChoiceChip(
-                  label: const Text('Todos'),
-                  selected: _filter == 'todos',
-                  onSelected: (_) => setState(() => _filter = 'todos'),
-                ),
-                ChoiceChip(
-                  label: const Text('Ingresos'),
-                  selected: _filter == 'ingreso',
-                  onSelected: (_) => setState(() => _filter = 'ingreso'),
-                ),
-                ChoiceChip(
-                  label: const Text('Gastos'),
-                  selected: _filter == 'gasto',
-                  onSelected: (_) => setState(() => _filter = 'gasto'),
-                ),
-              ],
+            ChoiceChip(
+              label: const Text('Todos'),
+              selected: _filter == 'todos',
+              onSelected: (_) => setState(() => _filter = 'todos'),
             ),
-            const SizedBox(height: 8),
-            ...list.map((c) {
-              final color = _hexToColor(c.color);
-              return Card(
-                elevation: 1,
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: color.withOpacity(0.15),
-                    child: _buildIconWidget(c.icono, color, size: 18),
-                  ),
-                  title: Text(
-                    c.nombre,
-                    style: const TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Text(
-                    c.tipo == 'ingreso' ? 'Ingreso' : 'Gasto',
-                    style: TextStyle(color: scheme.onSurfaceVariant),
-                  ),
-                  trailing: Switch(
-                    value: c.activo,
-                    onChanged: (v) => provider.toggleActivo(c.id, v),
-                  ),
-                  onTap: () => _openForm(context, category: c),
-                  onLongPress: () async {
-                    final ok = await showDialog<bool>(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Eliminar'),
-                        content: Text('¿Eliminar "${c.nombre}"?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('Cancelar'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('Eliminar'),
-                          ),
-                        ],
+            ChoiceChip(
+              label: const Text('Ingresos'),
+              selected: _filter == 'ingreso',
+              onSelected: (_) => setState(() => _filter = 'ingreso'),
+            ),
+            ChoiceChip(
+              label: const Text('Gastos'),
+              selected: _filter == 'gasto',
+              onSelected: (_) => setState(() => _filter = 'gasto'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...list.map((c) {
+          final color = _hexToColor(c.color);
+          return Card(
+            elevation: 0,
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: color.withOpacity(0.15),
+                child: _buildIconWidget(c.icono, color, size: 18),
+              ),
+              title: Text(
+                c.nombre,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                c.tipo == 'ingreso' ? 'Ingreso' : 'Gasto',
+                style: TextStyle(color: scheme.onSurfaceVariant),
+              ),
+              trailing: Switch(
+                value: c.activo,
+                onChanged: (v) => provider.toggleActivo(c.id, v),
+              ),
+              onTap: () => _openForm(context, category: c),
+              onLongPress: () async {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Eliminar'),
+                    content: Text('¿Eliminar "${c.nombre}"?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text('Cancelar'),
                       ),
-                    );
-                    if (ok == true) await provider.delete(c.id);
-                  },
-                ),
-              );
-            }),
-            if (provider.error != null) ...[
-              const SizedBox(height: 8),
-              Card(
-                color: scheme.errorContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      Icon(Icons.error, color: scheme.onErrorContainer),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          provider.error!,
-                          style: TextStyle(color: scheme.onErrorContainer),
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.close, color: scheme.onErrorContainer),
-                        onPressed: () =>
-                            context.read<CategoryProvider>().load(),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        child: const Text('Eliminar'),
                       ),
                     ],
                   ),
-                ),
+                );
+                if (ok == true) await provider.delete(c.id);
+              },
+            ),
+          );
+        }),
+        if (provider.error != null) ...[
+          const SizedBox(height: 8),
+          Card(
+            color: scheme.errorContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Icon(Icons.error, color: scheme.onErrorContainer),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      provider.error!,
+                      style: TextStyle(color: scheme.onErrorContainer),
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close, color: scheme.onErrorContainer),
+                    onPressed: () => context.read<CategoryProvider>().load(),
+                  ),
+                ],
               ),
-            ],
-            const SizedBox(height: 100),
-          ],
-        ),
-      ),
-      floatingActionButton: _reorderMode
-          ? null
-          : FloatingActionButton.extended(
-        onPressed: () => _openForm(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Agregar'),
-      ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 100),
+      ],
     );
   }
 
@@ -217,7 +214,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
               final color = _hexToColor(c.color);
               return Card(
                 key: ValueKey(c.id),
-                elevation: 1,
+                elevation: 0,
                 child: ListTile(
                   leading: CircleAvatar(
                     backgroundColor: color.withOpacity(0.15),
@@ -229,11 +226,14 @@ class _CategoriesPageState extends State<CategoriesPage> {
                   ),
                   subtitle: Text(
                     c.tipo == 'ingreso' ? 'Ingreso' : 'Gasto',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    style: TextStyle(
+                        color:
+                        Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                   trailing: ReorderableDragStartListener(
                     index: index,
-                    child: Icon(Icons.drag_handle, color: Theme.of(context).colorScheme.primary),
+                    child: Icon(Icons.drag_handle,
+                        color: Theme.of(context).colorScheme.primary),
                   ),
                 ),
               );
@@ -284,7 +284,9 @@ class _CategoriesPageState extends State<CategoriesPage> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            isEdit ? 'Editar categoría' : 'Nueva categoría',
+                            isEdit
+                                ? 'Editar categoría'
+                                : 'Nueva categoría',
                             style: Theme.of(context)
                                 .textTheme
                                 .titleLarge
@@ -299,8 +301,9 @@ class _CategoriesPageState extends State<CategoriesPage> {
                           labelText: 'Nombre',
                           prefixIcon: Icon(Icons.label_outline),
                         ),
-                        validator: (v) =>
-                        (v == null || v.trim().length < 3) ? 'Mínimo 3 caracteres' : null,
+                        validator: (v) => (v == null || v.trim().length < 3)
+                            ? 'Mínimo 3 caracteres'
+                            : null,
                       ),
                       const SizedBox(height: 12),
                       SegmentedButton<String>(
@@ -315,13 +318,15 @@ class _CategoriesPageState extends State<CategoriesPage> {
                               icon: Icon(Icons.trending_down)),
                         ],
                         selected: {tipo},
-                        onSelectionChanged: (s) => setModalState(() => tipo = s.first),
+                        onSelectionChanged: (s) =>
+                            setModalState(() => tipo = s.first),
                       ),
                       const SizedBox(height: 12),
                       InputDecorator(
                         decoration: const InputDecoration(
                           labelText: 'Icono',
-                          border: OutlineInputBorder(borderSide: BorderSide.none),
+                          border:
+                          OutlineInputBorder(borderSide: BorderSide.none),
                           filled: true,
                         ),
                         child: Wrap(
@@ -330,14 +335,18 @@ class _CategoriesPageState extends State<CategoriesPage> {
                           children: _iconCatalog.entries.map((e) {
                             final selected = iconCode == e.key;
                             return InkWell(
-                              onTap: () => setModalState(() => iconCode = e.key),
+                              onTap: () =>
+                                  setModalState(() => iconCode = e.key),
                               borderRadius: BorderRadius.circular(10),
                               child: Container(
                                 width: 48,
                                 height: 48,
                                 decoration: BoxDecoration(
                                   color: selected
-                                      ? Theme.of(context).colorScheme.primary.withOpacity(0.12)
+                                      ? Theme.of(context)
+                                      .colorScheme
+                                      .primary
+                                      .withOpacity(0.12)
                                       : Colors.transparent,
                                   border: Border.all(
                                     color: selected
@@ -347,7 +356,9 @@ class _CategoriesPageState extends State<CategoriesPage> {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 alignment: Alignment.center,
-                                child: _buildIconWidget(e.key, _hexToColor(colorHex), size: 20),
+                                child: _buildIconWidget(e.key,
+                                    _hexToColor(colorHex),
+                                    size: 20),
                               ),
                             );
                           }).toList(),
@@ -357,7 +368,8 @@ class _CategoriesPageState extends State<CategoriesPage> {
                       InputDecorator(
                         decoration: const InputDecoration(
                           labelText: 'Color',
-                          border: OutlineInputBorder(borderSide: BorderSide.none),
+                          border:
+                          OutlineInputBorder(borderSide: BorderSide.none),
                           filled: true,
                         ),
                         child: Column(
@@ -367,9 +379,11 @@ class _CategoriesPageState extends State<CategoriesPage> {
                               spacing: 8,
                               runSpacing: 8,
                               children: _presetColors.map((h) {
-                                final selected = colorHex.toUpperCase() == h.toUpperCase();
+                                final selected = colorHex.toUpperCase() ==
+                                    h.toUpperCase();
                                 return InkWell(
-                                  onTap: () => setModalState(() => colorHex = h),
+                                  onTap: () =>
+                                      setModalState(() => colorHex = h),
                                   borderRadius: BorderRadius.circular(16),
                                   child: Container(
                                     width: 28,
@@ -378,7 +392,9 @@ class _CategoriesPageState extends State<CategoriesPage> {
                                       color: _hexToColor(h),
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: selected ? Colors.black87 : Colors.white,
+                                        color: selected
+                                            ? Colors.black87
+                                            : Colors.white,
                                         width: selected ? 2 : 1,
                                       ),
                                     ),
@@ -391,10 +407,14 @@ class _CategoriesPageState extends State<CategoriesPage> {
                               initialValue: colorHex,
                               decoration: const InputDecoration(
                                 hintText: '#RRGGBB',
-                                prefixIcon: Icon(Icons.color_lens_outlined),
+                                prefixIcon:
+                                Icon(Icons.color_lens_outlined),
                               ),
-                              onChanged: (v) => setModalState(() => colorHex = v.trim()),
-                              validator: (v) => _isValidHex(v ?? '') ? null : 'Hex inválido (ej: #FF5722)',
+                              onChanged: (v) =>
+                                  setModalState(() => colorHex = v.trim()),
+                              validator: (v) => _isValidHex(v ?? '')
+                                  ? null
+                                  : 'Hex inválido (ej: #FF5722)',
                             ),
                           ],
                         ),
@@ -405,7 +425,8 @@ class _CategoriesPageState extends State<CategoriesPage> {
                           if (isEdit)
                             Expanded(
                               child: OutlinedButton.icon(
-                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                icon: const Icon(Icons.delete_outline,
+                                    color: Colors.red),
                                 label: const Text(
                                   'Eliminar',
                                   style: TextStyle(color: Colors.red),
@@ -415,14 +436,17 @@ class _CategoriesPageState extends State<CategoriesPage> {
                                     context: context,
                                     builder: (d) => AlertDialog(
                                       title: const Text('Eliminar'),
-                                      content: Text('¿Eliminar la categoría "${category!.nombre}"?'),
+                                      content: Text(
+                                          '¿Eliminar la categoría "${category!.nombre}"?'),
                                       actions: [
                                         TextButton(
-                                          onPressed: () => Navigator.pop(d, false),
+                                          onPressed: () =>
+                                              Navigator.pop(d, false),
                                           child: const Text('Cancelar'),
                                         ),
                                         TextButton(
-                                          onPressed: () => Navigator.pop(d, true),
+                                          onPressed: () =>
+                                              Navigator.pop(d, true),
                                           child: const Text('Eliminar'),
                                         ),
                                       ],
@@ -439,7 +463,8 @@ class _CategoriesPageState extends State<CategoriesPage> {
                           Expanded(
                             child: FilledButton.icon(
                               icon: const Icon(Icons.save),
-                              label: Text(isEdit ? 'Guardar' : 'Crear'),
+                              label:
+                              Text(isEdit ? 'Guardar' : 'Crear'),
                               onPressed: () async {
                                 if (!formKey.currentState!.validate()) {
                                   return;

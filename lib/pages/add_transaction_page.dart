@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/transaction_provider.dart';
+import '../widgets/large_title_scaffold.dart';
 
 class AddTransactionPage extends StatefulWidget {
   const AddTransactionPage({super.key});
@@ -33,11 +34,12 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
         .where((c) => c.activo && c.tipo == _tipo)
         .toList();
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Agregar movimiento')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
+    return LargeTitleScaffold(
+      title: 'Agregar movimiento',
+      size: TitleSize.compact,
+      contentTopSpacing: 4,
+      children: [
+        Form(
           key: _formKey,
           child: Column(
             children: [
@@ -79,7 +81,6 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                   labelText: 'Descripción (opcional)',
                   prefixIcon: Icon(Icons.description_outlined),
                 ),
-                // sin validator => puede ser vacío
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
@@ -94,8 +95,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                 ))
                     .toList(),
                 onChanged: (v) => setState(() => _categoriaId = v),
-                validator: (v) =>
-                v == null ? 'Selecciona una categoría' : null,
+                validator: (v) => v == null ? 'Selecciona una categoría' : null,
               ),
               const SizedBox(height: 12),
               ListTile(
@@ -125,8 +125,7 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
                     final ok = await context.read<TransactionProvider>().add(
                       monto: double.parse(
                           _montoCtrl.text.replaceAll(',', '.')),
-                      descripcion:
-                      _descCtrl.text.trim(), // puede ir vacío
+                      descripcion: _descCtrl.text.trim(),
                       tipo: _tipo,
                       categoriaId: _categoriaId!,
                       fecha: _fecha,
@@ -138,7 +137,8 @@ class _AddTransactionPageState extends State<AddTransactionPage> {
             ],
           ),
         ),
-      ),
+        const SizedBox(height: 40),
+      ],
     );
   }
 }
